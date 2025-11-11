@@ -13,30 +13,30 @@ export const Header = ({ title, onSave, onExport }: HeaderProps) => {
 
   return (
     <header className="sticky top-0 z-30 bg-card border-b border-border backdrop-blur-lg bg-card/80">
-      <div className="flex items-center justify-between px-6 py-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{title}</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-3 sm:px-4 lg:px-6 py-3 sm:py-4 gap-3 sm:gap-4">
+        <div className="w-full sm:w-auto">
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">{title}</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
             Radiator & Heat Exchanger Engineering
           </p>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 w-full sm:w-auto flex-wrap">
           {onSave && (
-            <Button onClick={onSave} variant="outline" size="sm" className="gap-2">
-              <Save size={16} />
-              Save
+            <Button onClick={onSave} variant="outline" size="sm" className="gap-2 flex-1 sm:flex-initial">
+              <Save size={14} className="sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Save</span>
             </Button>
           )}
           {onExport && (
-            <Button onClick={onExport} variant="outline" size="sm" className="gap-2">
-              <FileDown size={16} />
-              Export
+            <Button onClick={onExport} variant="outline" size="sm" className="gap-2 flex-1 sm:flex-initial">
+              <FileDown size={14} className="sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Export</span>
             </Button>
           )}
-          <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-lg">
-            <User size={18} className="text-muted-foreground" />
-            <span className="text-sm font-medium">
+          <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-muted rounded-lg flex-1 sm:flex-initial">
+            <User size={16} className="text-muted-foreground flex-shrink-0" />
+            <span className="text-xs sm:text-sm font-medium truncate">
               {engineerName || 'Engineer'}
             </span>
           </div>

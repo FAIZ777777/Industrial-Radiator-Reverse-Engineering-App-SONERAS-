@@ -25,23 +25,23 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       <Header title="Dashboard" />
       
-      <main className="p-6 max-w-7xl mx-auto">
+      <main className="p-3 sm:p-4 md:p-6 max-w-7xl mx-auto">
         {/* Welcome Section */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          <h2 className="text-3xl font-bold text-foreground mb-2">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
             Welcome to Soneras Engineering Suite
           </h2>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Professional radiator and heat exchanger reverse engineering calculations
           </p>
         </motion.div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8">
           <StatsCard
             title="Total Calculations"
             value={stats.total}
@@ -74,20 +74,20 @@ const Dashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <Card className="p-8 bg-gradient-primary border-0">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="text-primary-foreground">
-                <h3 className="text-2xl font-bold mb-2">Start New Calculation</h3>
-                <p className="text-primary-foreground/80">
+          <Card className="p-4 sm:p-6 md:p-8 bg-gradient-primary border-0">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6">
+              <div className="text-primary-foreground text-center md:text-left">
+                <h3 className="text-xl sm:text-2xl font-bold mb-2">Start New Calculation</h3>
+                <p className="text-sm sm:text-base text-primary-foreground/80">
                   Perform reverse engineering calculations on radiator products
                 </p>
               </div>
               <Button
                 size="lg"
                 onClick={() => navigate('/new-calculation')}
-                className="bg-card text-foreground hover:bg-card/90 shadow-xl"
+                className="bg-card text-foreground hover:bg-card/90 shadow-xl w-full md:w-auto"
               >
-                <Calculator className="mr-2" size={20} />
+                <Calculator className="mr-2" size={18} />
                 New Calculation
               </Button>
             </div>
@@ -99,41 +99,41 @@ const Dashboard = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="mt-8"
+          className="mt-6 sm:mt-8"
         >
-          <h3 className="text-xl font-bold text-foreground mb-4">Recent Activity</h3>
-          <Card className="p-6">
+          <h3 className="text-lg sm:text-xl font-bold text-foreground mb-3 sm:mb-4">Recent Activity</h3>
+          <Card className="p-4 sm:p-6">
             {calculations.length === 0 ? (
-              <div className="text-center py-12">
-                <Calculator className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-                <p className="text-muted-foreground">No calculations yet</p>
+              <div className="text-center py-8 sm:py-12">
+                <Calculator className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground/50 mb-3 sm:mb-4" />
+                <p className="text-sm sm:text-base text-muted-foreground mb-3 sm:mb-4">No calculations yet</p>
                 <Button
                   variant="outline"
-                  className="mt-4"
+                  className="w-full sm:w-auto"
                   onClick={() => navigate('/new-calculation')}
                 >
                   Create your first calculation
                 </Button>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {calculations.slice(0, 5).map((calc, index) => (
                   <motion.div
                     key={calc.id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.6 + index * 0.1 }}
-                    className="flex items-center justify-between p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer gap-3"
                     onClick={() => navigate('/history')}
                   >
-                    <div>
-                      <h4 className="font-semibold text-foreground">{calc.productName}</h4>
-                      <p className="text-sm text-muted-foreground">
+                    <div className="w-full sm:w-auto">
+                      <h4 className="font-semibold text-sm sm:text-base text-foreground truncate">{calc.productName}</h4>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         {new Date(calc.timestamp).toLocaleDateString()} • {calc.engineer}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-primary">
+                    <div className="text-left sm:text-right w-full sm:w-auto">
+                      <p className="font-semibold text-base sm:text-lg text-primary">
                         {(calc.results.effectiveness * 100).toFixed(1)}%
                       </p>
                       <p className="text-xs text-muted-foreground">Effectiveness</p>
