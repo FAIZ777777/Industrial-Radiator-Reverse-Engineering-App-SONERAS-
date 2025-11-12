@@ -1,11 +1,15 @@
-import { Home, Calculator, History, Settings, Info, Menu, X } from 'lucide-react';
+import { Home, Calculator, History, Settings, Info, Menu, X, LogOut } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import sonerasLogo from '@/assets/soneras-logo.png';
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
 
 const menuItems = [
-  { title: 'Dashboard', path: '/', icon: Home },
+  { title: 'Dashboard', path: '/dashboard', icon: Home },
   { title: 'New Calculation', path: '/new-calculation', icon: Calculator },
   { title: 'History', path: '/history', icon: History },
   { title: 'Settings', path: '/settings', icon: Settings },
@@ -14,6 +18,25 @@ const menuItems = [
 
 export const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "Signed out",
+        description: "You've been signed out successfully.",
+      });
+      navigate("/signin");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <>
@@ -96,15 +119,37 @@ export const Sidebar = () => {
             </ul>
           </nav>
 
-          {/* Footer */}
+          {/* Sign Out Section */}
           <div className="p-4 border-t border-sidebar-border">
+            <Button
+              onClick={handleSignOut}
+              variant="ghost"
+              className={`w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 transition-all ${
+                isCollapsed ? 'px-2' : 'px-4'
+              }`}
+            >
+              <LogOut size={20} className="flex-shrink-0" />
+              <AnimatePresence>
+                {!isCollapsed && (
+                  <motion.span
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: 'auto' }}
+                    exit={{ opacity: 0, width: 0 }}
+                    className="ml-3 whitespace-nowrap"
+                  >
+                    Sign Out
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </Button>
+            
             <AnimatePresence>
               {!isCollapsed && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="text-xs text-sidebar-foreground/60 text-center"
+                  className="text-xs text-sidebar-foreground/60 text-center mt-4"
                 >
                   <p>Version 1.0.0</p>
                   <p className="mt-1">© 2024 Soneras</p>
