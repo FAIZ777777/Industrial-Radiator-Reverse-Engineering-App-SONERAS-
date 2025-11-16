@@ -1,6 +1,54 @@
-import { CalculationInput, CalculationResults } from '@/store/calculationStore';
+const RE_CRITICAL_INTERNAL = 2000;
+const RE_CRITICAL_EXTERNAL = 5e5;
+const RE_TRANSITION_END = 4000;
+const GRAVITY = 9.81;
 
-// Reynolds Number Calculation
+export type HeatExchangerType = 'parallel' | 'counterflow' | 'shelltube' | 'crossflow';
+
+interface CalculationInput {
+  hotFluidDensity: number;
+  hotFluidVelocity: number;
+  tubeExtDiameter: number;
+  hotFluidViscosity: number;
+  coldFluidDensity: number;
+  coldFluidVelocity: number;
+  tubeIntDiameter: number;
+  coldFluidViscosity: number;
+  hotFluidSpecificHeat: number;
+  hotFluidThermalConductivity: number;
+  coldFluidSpecificHeat: number;
+  coldFluidThermalConductivity: number;
+  hotFluidTempIn: number;
+  hotFluidTempOut: number;
+  coldFluidTempIn: number;
+  coldFluidTempOut: number;
+  wallTemp: number;
+  tubeLength: number;
+  gravityCoefficient?: number;
+  totalSurfaceArea: number;
+  hotFluidMassFlow: number;
+  coldFluidMassFlow: number;
+}
+
+interface CalculationResults {
+  reynolds: { hot: number; cold: number };
+  prandtl: { hot: number; cold: number };
+  grashof: { hot: number; cold: number };
+  rayleigh: { hot: number; cold: number };
+  nusselt: { hot: number; cold: number };
+  heatTransferCoeff: { hot: number; cold: number };
+  overallHeatTransferCoeff: number;
+  capacityRatio: number;
+  NTU: number;
+  effectiveness: number;
+  heatTransferRate: number;
+  maxHeatTransferRate: number;
+  pressureDrop: { hot: number; cold: number };
+  flowRegime: { hot: 'Laminar' | 'Transitional' | 'Turbulent'; cold: 'Laminar' | 'Transitional' | 'Turbulent' };
+  configuration: HeatExchangerType;
+  criticalReynolds: { internal: number; external: number };
+}
+
 export const calculateReynolds = (
   massFlow: number,
   viscosity: number,
@@ -18,7 +66,14 @@ export const calculateReynoldsFromVelocity = (
   return (density * velocity * diameter) / viscosity;
 };
 
-// Prandtl Number Calculation
+export const determineFlowRegime = (
+  reynolds: number
+): 'Laminar' | 'Transitional' | 'Turbulent' => {
+  if (reynolds < RE_CRITICAL_INTERNAL) return 'Laminar';
+  if (reynolds < RE_TRANSITION_END) return 'Transitional';
+  return 'Turbulent';
+};
+
 export const calculatePrandtl = (
   viscosity: number,
   specificHeat: number,
@@ -27,55 +82,57 @@ export const calculatePrandtl = (
   return (viscosity * specificHeat) / thermalConductivity;
 };
 
-// Grashof Number Calculation
+export const calculateBeta = (temperature: number): number => {
+  return 1 / (temperature + 273.15);
+};
+
 export const calculateGrashof = (
   temperature: number,
   wallTemp: number,
   density: number,
   length: number,
   viscosity: number,
-  gravity: number
+  gravity: number = GRAVITY
 ): number => {
-  const beta = 1 / temperature;
-  const numerator = beta * gravity * Math.abs(wallTemp - temperature) * Math.pow(density, 2) * Math.pow(length, 3);
+  const beta = calculateBeta(temperature);
+  const tempDiff = Math.abs(wallTemp - temperature);
+  const numerator = beta * gravity * tempDiff * Math.pow(density, 2) * Math.pow(length, 3);
   const denominator = Math.pow(viscosity, 2);
   return numerator / denominator;
 };
 
-// Rayleigh Number Calculation
 export const calculateRayleigh = (grashof: number, prandtl: number): number => {
   return grashof * prandtl;
 };
 
-// Nusselt Number Calculation (Churchill-Bernstein for external flow over cylinder)
 export const calculateNusseltChurchillBernstein = (
   reynolds: number,
-  prandtl: number
+  prandtl: number,
+  viscosityRatio: number = 1.0
 ): number => {
   const term1 = 0.4 * Math.pow(reynolds, 0.5);
   const term2 = 0.06 * Math.pow(reynolds, 2 / 3);
   const term3 = Math.pow(prandtl, 0.4);
-  return (term1 + term2) * term3;
+  const term4 = Math.pow(viscosityRatio, 0.25);
+  return (term1 + term2) * term3 * term4;
 };
 
-// Nusselt Number for laminar flow in pipe
 export const calculateNusseltLaminar = (): number => {
   return 3.66;
 };
 
-// Nusselt Number (Simplified formula for external flow)
-export const calculateNusseltSimplified = (
+export const calculateNusseltAlternative = (
   reynolds: number,
   prandtl: number
 ): number => {
   const term1 = 0.3;
-  const term2 = (0.62 * Math.pow(reynolds, 0.5) * Math.pow(prandtl, 1 / 3)) /
-    Math.pow(1 + Math.pow(0.4 * prandtl, 2 / 3), 0.25);
+  const numerator = 0.62 * Math.pow(reynolds, 0.5) * Math.pow(prandtl, 1 / 3);
+  const denominator = Math.pow(1 + Math.pow(0.4 / prandtl, 2 / 3), 0.25);
+  const term2 = numerator / denominator;
   const term3 = Math.pow(1 + Math.pow(reynolds / 282000, 5 / 8), 4 / 5);
   return term1 + term2 * term3;
 };
 
-// Heat Transfer Coefficient
 export const calculateHeatTransferCoefficient = (
   nusselt: number,
   thermalConductivity: number,
@@ -84,29 +141,42 @@ export const calculateHeatTransferCoefficient = (
   return (nusselt * thermalConductivity) / diameter;
 };
 
-// NTU (Number of Transfer Units)
+export const calculateOverallU = (
+  hHot: number,
+  hCold: number,
+  wallResistance: number = 0
+): number => {
+  return 1 / (1 / hHot + wallResistance + 1 / hCold);
+};
+
 export const calculateNTU = (
-  overallHeatTransferCoeff: number,
+  overallU: number,
   area: number,
   minCapacity: number
 ): number => {
-  return (overallHeatTransferCoeff * area) / minCapacity;
+  return (overallU * area) / minCapacity;
 };
 
-// Effectiveness for Counter Flow
+export const calculateCapacityRatio = (
+  minCapacity: number,
+  maxCapacity: number
+): number => {
+  return minCapacity / maxCapacity;
+};
+
 export const calculateEffectivenessCounterFlow = (
   ntu: number,
   capacityRatio: number
 ): number => {
-  if (capacityRatio === 1) {
+  if (Math.abs(capacityRatio - 1) < 0.001) {
     return ntu / (1 + ntu);
   }
-  const numerator = 1 - Math.exp(-ntu * (1 - capacityRatio));
-  const denominator = 1 - capacityRatio * Math.exp(-ntu * (1 - capacityRatio));
+  const exp_term = Math.exp(-ntu * (1 - capacityRatio));
+  const numerator = 1 - exp_term;
+  const denominator = 1 - capacityRatio * exp_term;
   return numerator / denominator;
 };
 
-// Effectiveness for Parallel Flow
 export const calculateEffectivenessParallelFlow = (
   ntu: number,
   capacityRatio: number
@@ -116,7 +186,30 @@ export const calculateEffectivenessParallelFlow = (
   return numerator / denominator;
 };
 
-// Pressure Drop Calculation
+export const getEffectiveness = (
+  ntu: number,
+  capacityRatio: number,
+  type: HeatExchangerType
+): number => {
+  switch (type) {
+    case 'parallel':
+      return calculateEffectivenessParallelFlow(ntu, capacityRatio);
+    case 'counterflow':
+    case 'shelltube':
+    case 'crossflow':
+    default:
+      return calculateEffectivenessCounterFlow(ntu, capacityRatio);
+  }
+};
+
+export const calculateFrictionFactorBlasius = (reynolds: number): number => {
+  return 0.079 / Math.pow(reynolds, 0.25);
+};
+
+export const calculateFrictionFactorLaminar = (reynolds: number): number => {
+  return 64 / reynolds;
+};
+
 export const calculatePressureDrop = (
   frictionFactor: number,
   length: number,
@@ -127,11 +220,11 @@ export const calculatePressureDrop = (
   return (frictionFactor * length * density * Math.pow(velocity, 2)) / (2 * diameter);
 };
 
-// Main Calculation Function
 export const performCalculations = (
-  input: CalculationInput
+  input: CalculationInput,
+  exchangerType: HeatExchangerType = 'counterflow'
 ): CalculationResults => {
-  // Step 1: Calculate Reynolds Numbers
+  
   const reynoldsHot = calculateReynoldsFromVelocity(
     input.hotFluidDensity,
     input.hotFluidVelocity,
@@ -146,10 +239,9 @@ export const performCalculations = (
     input.coldFluidViscosity
   );
 
-  // Determine flow regime
-  const flowRegime = reynoldsHot < 2000 || reynoldsCold < 2000 ? 'Laminar' : 'Turbulent';
+  const flowRegimeHot = determineFlowRegime(reynoldsHot);
+  const flowRegimeCold = determineFlowRegime(reynoldsCold);
 
-  // Step 2: Calculate Prandtl Numbers
   const prandtlHot = calculatePrandtl(
     input.hotFluidViscosity,
     input.hotFluidSpecificHeat,
@@ -162,13 +254,12 @@ export const performCalculations = (
     input.coldFluidThermalConductivity
   );
 
-  // Step 3: Calculate Grashof Numbers
-  const avgHotTemp = (input.hotFluidTempIn + input.hotFluidTempOut) / 2 + 273.15;
-  const avgColdTemp = (input.coldFluidTempIn + input.coldFluidTempOut) / 2 + 273.15;
+  const avgHotTemp = (input.hotFluidTempIn + input.hotFluidTempOut) / 2;
+  const avgColdTemp = (input.coldFluidTempIn + input.coldFluidTempOut) / 2;
 
   const grashofHot = calculateGrashof(
     avgHotTemp,
-    input.wallTemp + 273.15,
+    input.wallTemp,
     input.hotFluidDensity,
     input.tubeLength,
     input.hotFluidViscosity,
@@ -177,30 +268,31 @@ export const performCalculations = (
 
   const grashofCold = calculateGrashof(
     avgColdTemp,
-    input.wallTemp + 273.15,
+    input.wallTemp,
     input.coldFluidDensity,
     input.tubeLength,
     input.coldFluidViscosity,
     input.gravityCoefficient
   );
 
-  // Step 4: Calculate Rayleigh Numbers
   const rayleighHot = calculateRayleigh(grashofHot, prandtlHot);
   const rayleighCold = calculateRayleigh(grashofCold, prandtlCold);
 
-  // Step 5: Calculate Nusselt Numbers
   let nusseltHot: number;
   let nusseltCold: number;
 
-  if (flowRegime === 'Laminar') {
+  if (flowRegimeHot === 'Laminar') {
     nusseltHot = calculateNusseltLaminar();
-    nusseltCold = calculateNusseltLaminar();
   } else {
     nusseltHot = calculateNusseltChurchillBernstein(reynoldsHot, prandtlHot);
-    nusseltCold = calculateNusseltSimplified(reynoldsCold, prandtlCold);
   }
 
-  // Step 6: Calculate Heat Transfer Coefficients
+  if (flowRegimeCold === 'Laminar') {
+    nusseltCold = calculateNusseltLaminar();
+  } else {
+    nusseltCold = calculateNusseltAlternative(reynoldsCold, prandtlCold);
+  }
+
   const hHot = calculateHeatTransferCoefficient(
     nusseltHot,
     input.hotFluidThermalConductivity,
@@ -213,31 +305,31 @@ export const performCalculations = (
     input.tubeIntDiameter
   );
 
-  // Overall Heat Transfer Coefficient (simplified - series resistance)
-  const overallU = 1 / (1 / hHot + 1 / hCold);
+  const overallU = calculateOverallU(hHot, hCold);
 
-  // Step 7: Calculate Heat Capacities
   const capacityHot = input.hotFluidMassFlow * input.hotFluidSpecificHeat;
   const capacityCold = input.coldFluidMassFlow * input.coldFluidSpecificHeat;
   const minCapacity = Math.min(capacityHot, capacityCold);
   const maxCapacity = Math.max(capacityHot, capacityCold);
-  const capacityRatio = minCapacity / maxCapacity;
+  const capacityRatio = calculateCapacityRatio(minCapacity, maxCapacity);
 
-  // Step 8: Calculate NTU
   const ntu = calculateNTU(overallU, input.totalSurfaceArea, minCapacity);
 
-  // Step 9: Calculate Effectiveness (Counter Flow assumed)
-  const effectiveness = calculateEffectivenessCounterFlow(ntu, capacityRatio);
-  const configuration = 'Counter Flow (E-14)';
+  const effectiveness = getEffectiveness(ntu, capacityRatio, exchangerType);
 
-  // Step 10: Calculate Heat Transfer Rate
-  const maxHeatTransfer = minCapacity * (input.hotFluidTempIn - input.coldFluidTempIn);
-  const heatTransferRate = effectiveness * maxHeatTransfer;
+  const maxHeatTransferRate = minCapacity * (input.hotFluidTempIn - input.coldFluidTempIn);
+  const heatTransferRate = effectiveness * maxHeatTransferRate;
 
-  // Step 11: Calculate Pressure Drops (simplified)
-  const frictionFactor = 0.079 / Math.pow(reynoldsHot, 0.25); // Blasius equation for turbulent
+  const frictionFactorHot = flowRegimeHot === 'Laminar' 
+    ? calculateFrictionFactorLaminar(reynoldsHot)
+    : calculateFrictionFactorBlasius(reynoldsHot);
+
+  const frictionFactorCold = flowRegimeCold === 'Laminar'
+    ? calculateFrictionFactorLaminar(reynoldsCold)
+    : calculateFrictionFactorBlasius(reynoldsCold);
+
   const pressureDropHot = calculatePressureDrop(
-    frictionFactor,
+    frictionFactorHot,
     input.tubeLength,
     input.tubeExtDiameter,
     input.hotFluidDensity,
@@ -245,7 +337,7 @@ export const performCalculations = (
   );
 
   const pressureDropCold = calculatePressureDrop(
-    frictionFactor,
+    frictionFactorCold,
     input.tubeLength,
     input.tubeIntDiameter,
     input.coldFluidDensity,
@@ -253,22 +345,48 @@ export const performCalculations = (
   );
 
   return {
-    reynoldsHot,
-    reynoldsCold,
-    prandtlHot,
-    prandtlCold,
-    grashofHot,
-    grashofCold,
-    rayleighHot,
-    rayleighCold,
-    nusseltHot,
-    nusseltCold,
-    effectiveness,
-    ntu,
-    heatTransferRate,
-    pressureDropHot,
-    pressureDropCold,
-    configuration,
-    flowRegime,
+    reynolds: {
+      hot: reynoldsHot,
+      cold: reynoldsCold
+    },
+    prandtl: {
+      hot: prandtlHot,
+      cold: prandtlCold
+    },
+    grashof: {
+      hot: grashofHot,
+      cold: grashofCold
+    },
+    rayleigh: {
+      hot: rayleighHot,
+      cold: rayleighCold
+    },
+    nusselt: {
+      hot: nusseltHot,
+      cold: nusseltCold
+    },
+    heatTransferCoeff: {
+      hot: hHot,
+      cold: hCold
+    },
+    overallHeatTransferCoeff: overallU,
+    capacityRatio: capacityRatio,
+    NTU: ntu,
+    effectiveness: effectiveness,
+    heatTransferRate: heatTransferRate,
+    maxHeatTransferRate: maxHeatTransferRate,
+    pressureDrop: {
+      hot: pressureDropHot,
+      cold: pressureDropCold
+    },
+    flowRegime: {
+      hot: flowRegimeHot,
+      cold: flowRegimeCold
+    },
+    configuration: exchangerType,
+    criticalReynolds: {
+      internal: RE_CRITICAL_INTERNAL,
+      external: RE_CRITICAL_EXTERNAL
+    }
   };
 };

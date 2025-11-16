@@ -37,30 +37,66 @@ export interface CalculationInput {
 }
 
 export interface CalculationResults {
-  reynoldsHot: number;
-  reynoldsCold: number;
-  prandtlHot: number;
-  prandtlCold: number;
-  grashofHot: number;
-  grashofCold: number;
-  rayleighHot: number;
-  rayleighCold: number;
-  nusseltHot: number;
-  nusseltCold: number;
+  reynolds: {
+    hot: number;
+    cold: number;
+  };
+  prandtl: {
+    hot: number;
+    cold: number;
+  };
+  grashof: {
+    hot: number;
+    cold: number;
+  };
+  rayleigh: {
+    hot: number;
+    cold: number;
+  };
+  nusselt: {
+    hot: number;
+    cold: number;
+  };
+  heatTransferCoeff: {
+    hot: number;
+    cold: number;
+  };
+  overallHeatTransferCoeff: number;
+  capacityRatio: number;
+  NTU: number;
   effectiveness: number;
-  ntu: number;
   heatTransferRate: number;
-  pressureDropHot: number;
-  pressureDropCold: number;
-  configuration: string;
-  flowRegime: string;
+  maxHeatTransferRate: number;
+  pressureDrop: {
+    hot: number;
+    cold: number;
+  };
+  flowRegime: {
+    hot: 'Laminar' | 'Transitional' | 'Turbulent';
+    cold: 'Laminar' | 'Transitional' | 'Turbulent';
+  };
+  configuration: HeatExchangerType;
+  criticalReynolds: {
+    internal: number;
+    external: number;
+  };
 }
+
+export type HeatExchangerType = 
+  | 'parallel'
+  | 'counterflow'
+  | 'shelltube'
+  | 'crossflow'
+  | 'crossflow-mixed-unmixed'
+  | 'crossflow-cmax-unmixed'
+  | 'crossflow-cmin-unmixed';
 
 export interface Calculation {
   id: string;
   timestamp: string;
   engineer: string;
   productName: string;
+  exchangerType: HeatExchangerType;
   input: CalculationInput;
   results: CalculationResults;
 }
@@ -92,7 +128,7 @@ export const useCalculationStore = create<CalculationStore>()(
       clearHistory: () => set({ calculations: [] }),
     }),
     {
-      name: 'soneras-calculations',
+      name: 'sonera-calculations',
     }
   )
 );
