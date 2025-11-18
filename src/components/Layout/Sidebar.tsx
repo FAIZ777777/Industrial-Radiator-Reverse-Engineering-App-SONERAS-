@@ -1,4 +1,4 @@
-import { Home, Calculator, History, Settings, Info, Menu, X, LogOut } from 'lucide-react';
+import { Home, Calculator, History, Settings, Info, Menu, X, LogOut, Sparkles } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,17 +24,10 @@ export const Sidebar = () => {
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
-      toast({
-        title: "Signed out",
-        description: "You've been signed out successfully.",
-      });
+      toast({ title: "👋 Signed out successfully" });
       navigate("/signin");
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to sign out. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to sign out", variant: "destructive" });
     }
   };
 
@@ -47,7 +40,7 @@ export const Sidebar = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden"
             onClick={() => setIsCollapsed(true)}
           />
         )}
@@ -56,107 +49,95 @@ export const Sidebar = () => {
       {/* Sidebar */}
       <motion.aside
         initial={false}
-        animate={{ width: isCollapsed ? 0 : 280 }}
-        className={`fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border z-50 lg:relative transition-all duration-300 ${
-          isCollapsed ? 'lg:w-20' : 'lg:w-80'
-        }`}
+        animate={{ width: isCollapsed ? 76 : 280 }}
+        className="fixed lg:sticky left-0 top-0 h-screen bg-sidebar/95 backdrop-blur-2xl border-r border-border/40 z-50 flex flex-col"
       >
-        <div className="flex flex-col h-full">
-          {/* Logo and Toggle */}
-          <div className="flex items-center justify-between p-6 border-b border-sidebar-border">
-            <AnimatePresence mode="wait">
-              {!isCollapsed && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="flex items-center gap-3"
-                >
-                  <img src={sonerasLogo} alt="Soneras" className="h-10 w-10" />
-                  <div>
-                    <h1 className="text-sidebar-foreground font-bold text-lg">Soneras</h1>
-                    <p className="text-sidebar-foreground/60 text-xs">Engineering Suite</p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            
-            <button
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-2 rounded-lg hover:bg-sidebar-accent transition-colors text-sidebar-foreground"
-            >
-              {isCollapsed ? <Menu size={20} /> : <X size={20} />}
-            </button>
-          </div>
+        {/* Logo Header */}
+        <div className="flex items-center justify-between p-5 border-b border-border/30">
+          <AnimatePresence mode="wait">
+            {!isCollapsed && (
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="flex items-center gap-3.5"
+              >
+                <img src={sonerasLogo} alt="Soneras" className="h-10 w-10 rounded-lg shadow-md" />
+                <div>
+                  <h1 className="text-lg font-bold text-sidebar-foreground tracking-tight">Soneras</h1>
+                  <p className="text-xs text-sidebar-foreground/60 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> Engineering Suite
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {/* Navigation */}
-          <nav className="flex-1 p-4 overflow-y-auto">
-            <ul className="space-y-2">
-              {menuItems.map((item) => (
-                <li key={item.path}>
-                  <NavLink
-                    to={item.path}
-                    end={item.path === '/'}
-                    className="flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-all duration-200 group"
-                    activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-lg"
-                  >
-                    <item.icon size={20} className="flex-shrink-0" />
-                    <AnimatePresence>
-                      {!isCollapsed && (
-                        <motion.span
-                          initial={{ opacity: 0, width: 0 }}
-                          animate={{ opacity: 1, width: 'auto' }}
-                          exit={{ opacity: 0, width: 0 }}
-                          className="whitespace-nowrap"
-                        >
-                          {item.title}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
-          </nav>
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-2.5 rounded-lg hover:bg-sidebar-accent/60 transition-all hover:scale-110 text-sidebar-foreground/80"
+            aria-label="Toggle sidebar"
+          >
+            {isCollapsed ? <Menu size={22} /> : <X size={22} />}
+          </button>
+        </div>
 
-          {/* Sign Out Section */}
-          <div className="p-4 border-t border-sidebar-border">
-            <Button
-              onClick={handleSignOut}
-              variant="ghost"
-              className={`w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 transition-all ${
-                isCollapsed ? 'px-2' : 'px-4'
-              }`}
-            >
-              <LogOut size={20} className="flex-shrink-0" />
-              <AnimatePresence>
-                {!isCollapsed && (
-                  <motion.span
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: 'auto' }}
-                    exit={{ opacity: 0, width: 0 }}
-                    className="ml-3 whitespace-nowrap"
-                  >
-                    Sign Out
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </Button>
-            
-            <AnimatePresence>
-              {!isCollapsed && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="text-xs text-sidebar-foreground/60 text-center mt-4"
+        {/* Navigation */}
+        <nav className="flex-1 px-3 py-4">
+          <ul className="space-y-1">
+            {menuItems.map((item) => (
+              <li key={item.path}>
+                <NavLink
+                  to={item.path}
+                  className="flex items-center gap-4 px-3 py-3.5 rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-all duration-300 group"
+                  activeClassName="!text-primary font-semibold" // Only color change on active
                 >
-                  <p>Version 1.0.0</p>
-                  <p className="mt-1">© 2024 Soneras</p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                  <item.icon
+                    size={23}
+                    className="flex-shrink-0 group-hover:scale-110 transition-transform duration-300"
+                  />
+                  <AnimatePresence>
+                    {!isCollapsed && (
+                      <motion.span
+                        initial={{ opacity: 0, width: 0 }}
+                        animate={{ opacity: 1, width: "auto" }}
+                        exit={{ opacity: 0, width: 0 }}
+                        className="font-medium overflow-hidden whitespace-nowrap"
+                      >
+                        {item.title}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {/* Bottom: Logout + Footer */}
+        <div className="border-t border-border/30 p-4 space-y-4">
+          <Button
+            onClick={handleSignOut}
+            variant="ghost"
+            className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
+          >
+            <LogOut size={21} />
+            {!isCollapsed && <span className="ml-3 font-medium">Sign Out</span>}
+          </Button>
+
+          <AnimatePresence>
+            {!isCollapsed && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-center text-[10px] text-sidebar-foreground/40 pt-3 border-t border-border/20"
+              >
+                <p>v2.5.0 • 2025</p>
+                <p className="mt-0.5">© Soneras Technologies</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.aside>
     </>

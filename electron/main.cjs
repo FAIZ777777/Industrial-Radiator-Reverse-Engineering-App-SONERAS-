@@ -15,16 +15,36 @@ function createWindow() {
     backgroundColor: '#f9fafb',
   });
 
-  win.loadFile(path.join(__dirname, '../dist/index.html'));
+  // Check if we're in development mode
+  const isDev = !app.isPackaged;
 
-  // Remove this line in production
-  // win.webContents.openDevTools();
+  if (isDev) {
+    // In development, load from Vite dev server
+    win.loadURL('http://localhost:8080');
+    // Open DevTools in development
+    win.webContents.openDevTools();
+  } else {
+    // In production, load from built files
+    win.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
+
+  // Handle loading errors
+  win.webContents.on('did-fail-load', () => {
+    console.log('Failed to load. Retrying...');
+    setTimeout(() => {
+      if (isDev) {
+        win.loadURL('http://localhost:8080');
+      }
+    }, 1000);
+  });
 }
 
 app.whenReady().then(createWindow);
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
+
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
