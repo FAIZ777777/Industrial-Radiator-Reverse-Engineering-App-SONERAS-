@@ -6,7 +6,7 @@ import {
   FileText, CheckCircle, AlertCircle, BarChart3
 } from 'lucide-react';
 import { useCalculationStore, HeatExchangerType } from '@/store/calculationStore';
-import { exportToCSV, exportToJSON, exportToPDF } from '@/utils/exportFunctions';
+import { exportCalculationsToCSV, exportCalculationsToJSON } from '@/utils/exportFunctions';
 
 const History = () => {
   const navigate = useNavigate();
@@ -28,7 +28,8 @@ const History = () => {
         calc.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         calc.engineer.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesType = filterType === 'all' || calc.exchangerType === filterType;
+      // FIX: Use calc.input.flowConfiguration instead of calc.exchangerType
+      const matchesType = filterType === 'all' || (calc.input.flowConfiguration || 'counter-flow') === filterType;
       
       return matchesSearch && matchesType;
     });
@@ -63,7 +64,9 @@ const History = () => {
       : 0;
     
     const byType = calculations.reduce((acc, calc) => {
-      acc[calc.exchangerType] = (acc[calc.exchangerType] || 0) + 1;
+      // FIX: Use calc.input.flowConfiguration
+      const type = calc.input.flowConfiguration || 'counter-flow';
+      acc[type] = (acc[type] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -88,7 +91,11 @@ const History = () => {
   };
 
   const handleExport = (format: 'csv' | 'json') => {
-    alert(`Exporting ${filteredAndSortedCalculations.length} calculations as ${format.toUpperCase()}...`);
+    if (format === 'csv') {
+      exportCalculationsToCSV(filteredAndSortedCalculations);
+    } else {
+      exportCalculationsToJSON(filteredAndSortedCalculations);
+    }
   };
 
   const getPerformanceBadge = (effectiveness: number) => {
@@ -154,7 +161,7 @@ const History = () => {
               <BarChart3 className="w-5 h-5 text-purple-600" />
             </div>
             <p className="text-xl font-bold text-slate-900 capitalize">
-              {Object.entries(stats.byType).sort((a, b) => b[1] - a[1])[0]?.[0]?.replace('flow', ' Flow') || 'N/A'}
+              {Object.entries(stats.byType).sort((a, b) => b[1] - a[1])[0]?.[0]?.replace(/-/g, ' ') || 'N/A'}
             </p>
           </div>
         </div>
@@ -231,7 +238,15 @@ const History = () => {
                 >
                   All Types
                 </button>
-                {['counterflow', 'parallel', 'shelltube', 'crossflow'].map((type) => (
+                {/* Updated types to match the new Store IDs */}
+                {[
+                  'counter-flow', 
+                  'parallel-flow', 
+                  'shell-and-tube', 
+                  'cross-flow-both-unmixed',
+                  'cross-flow-cmax-mixed',
+                  'cross-flow-cmin-mixed'
+                ].map((type) => (
                   <button
                     key={type}
                     onClick={() => setFilterType(type as HeatExchangerType)}
@@ -241,7 +256,7 @@ const History = () => {
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
                   >
-                    {type.replace('flow', ' Flow')}
+                    {type.replace(/-/g, ' ')}
                   </button>
                 ))}
               </div>
@@ -339,7 +354,7 @@ const History = () => {
                             </span>
                             <span>Engineer: {calc.engineer}</span>
                             <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-md font-medium capitalize">
-                              {calc.exchangerType.replace('flow', ' Flow')}
+                              {(calc.input.flowConfiguration || 'counter-flow').replace(/-/g, ' ')}
                             </span>
                           </div>
                         </div>

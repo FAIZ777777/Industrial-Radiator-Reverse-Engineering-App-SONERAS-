@@ -1,11 +1,22 @@
+import { CalculationInput as StoreInput } from '@/store/calculationStore';
+
+// Constants
 const RE_CRITICAL_INTERNAL = 2000;
 const RE_CRITICAL_EXTERNAL = 5e5;
 const RE_TRANSITION_END = 4000;
 const GRAVITY = 9.81;
 
-export type HeatExchangerType = 'parallel' | 'counterflow' | 'shelltube' | 'crossflow';
+// 1. Update Types to match your UI options
+export type HeatExchangerType = 
+  | 'counter-flow' 
+  | 'parallel-flow' 
+  | 'shell-and-tube' 
+  | 'cross-flow-both-unmixed' 
+  | 'cross-flow-cmax-mixed' 
+  | 'cross-flow-cmin-mixed';
 
-interface CalculationInput {
+// 2. Update Interface to include the configuration
+export interface CalculationInput {
   hotFluidDensity: number;
   hotFluidVelocity: number;
   tubeExtDiameter: number;
@@ -28,9 +39,10 @@ interface CalculationInput {
   totalSurfaceArea: number;
   hotFluidMassFlow: number;
   coldFluidMassFlow: number;
+  flowConfiguration?: HeatExchangerType; // Added this field
 }
 
-interface CalculationResults {
+export interface CalculationResults {
   reynolds: { hot: number; cold: number };
   prandtl: { hot: number; cold: number };
   grashof: { hot: number; cold: number };
@@ -48,6 +60,8 @@ interface CalculationResults {
   configuration: HeatExchangerType;
   criticalReynolds: { internal: number; external: number };
 }
+
+// --- Basic Helper Functions ---
 
 export const calculateReynolds = (
   massFlow: number,
@@ -104,6 +118,8 @@ export const calculateGrashof = (
 export const calculateRayleigh = (grashof: number, prandtl: number): number => {
   return grashof * prandtl;
 };
+
+// --- Nusselt Correlations ---
 
 export const calculateNusseltChurchillBernstein = (
   reynolds: number,
@@ -164,42 +180,77 @@ export const calculateCapacityRatio = (
   return minCapacity / maxCapacity;
 };
 
-export const calculateEffectivenessCounterFlow = (
-  ntu: number,
-  capacityRatio: number
-): number => {
-  if (Math.abs(capacityRatio - 1) < 0.001) {
-    return ntu / (1 + ntu);
-  }
-  const exp_term = Math.exp(-ntu * (1 - capacityRatio));
-  const numerator = 1 - exp_term;
-  const denominator = 1 - capacityRatio * exp_term;
-  return numerator / denominator;
-};
-
-export const calculateEffectivenessParallelFlow = (
-  ntu: number,
-  capacityRatio: number
-): number => {
-  const numerator = 1 - Math.exp(-ntu * (1 + capacityRatio));
-  const denominator = 1 + capacityRatio;
-  return numerator / denominator;
-};
+// --- 3. Updated Effectiveness Logic for Cross-Flows ---
 
 export const getEffectiveness = (
   ntu: number,
-  capacityRatio: number,
+  cr: number, // Capacity Ratio
   type: HeatExchangerType
 ): number => {
+  // Safety: prevent negative NTU or divide by zero
+  if (ntu <= 0) return 0;
+
+  let eff = 0;
+
   switch (type) {
-    case 'parallel':
-      return calculateEffectivenessParallelFlow(ntu, capacityRatio);
-    case 'counterflow':
-    case 'shelltube':
-    case 'crossflow':
+    case 'parallel-flow':
+      // ε = (1 - exp(-NTU(1 + Cr))) / (1 + Cr)
+      eff = (1 - Math.exp(-ntu * (1 + cr))) / (1 + cr);
+      break;
+
+    case 'shell-and-tube':
+      // TEMA E (One shell pass, 2,4... tube passes)
+      // ε = 2 / (1 + Cr + sqrt(1+Cr^2) * (1+exp(-NTU*sqrt...)) / (1-exp(...)))
+      {
+        const sq = Math.sqrt(1 + cr * cr);
+        const expTerm = Math.exp(-ntu * sq);
+        const numerator = 1 + expTerm;
+        const denominator = 1 - expTerm;
+        eff = 2 * (1 / (1 + cr + sq * (numerator / denominator)));
+      }
+      break;
+
+    case 'cross-flow-both-unmixed':
+      // ε = 1 - exp[ (1/Cr) * (NTU)^0.22 * { exp[ -Cr * (NTU)^0.78 ] - 1 } ]
+      {
+         const exponent = (Math.pow(ntu, 0.22) / cr) * (Math.exp(-cr * Math.pow(ntu, 0.78)) - 1);
+         eff = 1 - Math.exp(exponent);
+      }
+      break;
+
+    case 'cross-flow-cmax-mixed':
+      // Cmax mixed, Cmin unmixed
+      // ε = (1/Cr) * (1 - exp{ -Cr * [1 - exp(-NTU)] })
+      {
+        const inner = 1 - Math.exp(-ntu);
+        eff = (1 / cr) * (1 - Math.exp(-cr * inner));
+      }
+      break;
+    
+    case 'cross-flow-cmin-mixed':
+      // Cmin mixed, Cmax unmixed
+      // ε = 1 - exp{ -(1/Cr) * [1 - exp(-Cr * NTU)] }
+      {
+        const inner = 1 - Math.exp(-cr * ntu);
+        eff = 1 - Math.exp(-(1 / cr) * inner);
+      }
+      break;
+
+    case 'counter-flow':
     default:
-      return calculateEffectivenessCounterFlow(ntu, capacityRatio);
+      // ε = (1 - exp(-NTU(1-Cr))) / (1 - Cr*exp(-NTU(1-Cr)))
+      if (cr < 1) {
+        const expTerm = Math.exp(-ntu * (1 - cr));
+        eff = (1 - expTerm) / (1 - cr * expTerm);
+      } else {
+        // When Cr = 1
+        eff = ntu / (1 + ntu);
+      }
+      break;
   }
+
+  // Clamp result between 0 and 1 (mathematical safety)
+  return Math.max(0, Math.min(1, eff));
 };
 
 export const calculateFrictionFactorBlasius = (reynolds: number): number => {
@@ -220,11 +271,15 @@ export const calculatePressureDrop = (
   return (frictionFactor * length * density * Math.pow(velocity, 2)) / (2 * diameter);
 };
 
+// --- 4. Main Calculation Function ---
+
 export const performCalculations = (
-  input: CalculationInput,
-  exchangerType: HeatExchangerType = 'counterflow'
+  input: CalculationInput
 ): CalculationResults => {
   
+  // Use the configuration from input, default to counter-flow if missing
+  const exchangerType = input.flowConfiguration || 'counter-flow';
+
   const reynoldsHot = calculateReynoldsFromVelocity(
     input.hotFluidDensity,
     input.hotFluidVelocity,
@@ -315,6 +370,7 @@ export const performCalculations = (
 
   const ntu = calculateNTU(overallU, input.totalSurfaceArea, minCapacity);
 
+  // Calculate effectiveness using the specific type
   const effectiveness = getEffectiveness(ntu, capacityRatio, exchangerType);
 
   const maxHeatTransferRate = minCapacity * (input.hotFluidTempIn - input.coldFluidTempIn);

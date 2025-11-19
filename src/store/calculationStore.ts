@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+// 1. Update these types to match EXACTLY what is in your UI (NewCalculation.tsx)
+export type HeatExchangerType = 
+  | 'counter-flow' 
+  | 'parallel-flow' 
+  | 'shell-and-tube' 
+  | 'cross-flow-both-unmixed' 
+  | 'cross-flow-cmax-mixed' 
+  | 'cross-flow-cmin-mixed';
+
 export interface CalculationInput {
   // Thermal Properties
   hotFluidTempIn: number;
@@ -34,6 +43,15 @@ export interface CalculationInput {
   hotFluidVelocity: number;
   coldFluidVelocity: number;
   gravityCoefficient: number;
+
+  // --- NEW FIELDS ADDED HERE ---
+  // This connects the dropdown in UI to the logic
+  flowConfiguration: HeatExchangerType; 
+  
+  // These were in your formData in NewCalculation.tsx but missing here
+  tubeThermalConductivity?: number;
+  foulingFactorHot?: number;
+  foulingFactorCold?: number;
 }
 
 export interface CalculationResults {
@@ -82,21 +100,13 @@ export interface CalculationResults {
   };
 }
 
-export type HeatExchangerType = 
-  | 'parallel'
-  | 'counterflow'
-  | 'shelltube'
-  | 'crossflow'
-  | 'crossflow-mixed-unmixed'
-  | 'crossflow-cmax-unmixed'
-  | 'crossflow-cmin-unmixed';
-
 export interface Calculation {
   id: string;
   timestamp: string;
   engineer: string;
   productName: string;
-  exchangerType: HeatExchangerType;
+  // Removed 'exchangerType' from here because it is now inside 'input.flowConfiguration'
+  // This prevents the error where you weren't passing it at the root level.
   input: CalculationInput;
   results: CalculationResults;
 }

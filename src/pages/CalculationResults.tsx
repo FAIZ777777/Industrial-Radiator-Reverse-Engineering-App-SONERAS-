@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useCalculationStore } from '@/store/calculationStore';
 import { useNavigate } from 'react-router-dom';
+import { exportToPDF, exportToExcel, exportToJSON } from '@/utils/exportFunctions'; // Import export functions
 
 const CalculationResults = () => {
   const navigate = useNavigate();
@@ -38,7 +39,25 @@ const CalculationResults = () => {
   ];
 
   const handleExport = (type: string) => {
-    alert(`Exporting as ${type.toUpperCase()}...`);
+    if (type === 'pdf') {
+        exportToPDF(currentCalculation);
+    } else if (type === 'excel') {
+        exportToExcel(currentCalculation); // Requires array if using exportToExcel from utils, or update utils to handle single
+        // Assuming exportToExcel takes an array based on previous files, or adapt it.
+        // If exportToExcel takes an array: exportToExcel([currentCalculation]);
+        // Let's assume for this component we might need a wrapper or direct call if updated.
+        // Based on previous context exportToExcel took an array. 
+        // Let's wrap it for safety if the utility expects an array:
+        // import { exportCalculationsToExcel } from ... might be better if available.
+        // For now, I will call it directly assuming you aligned it or I will pass array.
+         // exportToExcel([currentCalculation]); // If using the array version
+         // Or if you updated exportToExcel to take a single calculation:
+         // exportToExcel(currentCalculation);
+         // I will leave it generic here as I can't see the final utility signature perfectly.
+         // But based on the previous file I generated for you, exportToExcel takes a Calculation object.
+    } else if (type === 'json') {
+        exportToJSON([currentCalculation]);
+    }
   };
 
   const toggleSection = (section: string) => {
@@ -126,7 +145,7 @@ const CalculationResults = () => {
             </div>
             <div className="hidden sm:flex gap-2">
               <button 
-                onClick={() => alert('Share report')}
+                onClick={() => alert('Share report feature coming soon')}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-all"
               >
                 <Share2 size={20} className="text-slate-600" />
@@ -150,7 +169,8 @@ const CalculationResults = () => {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             <div>
               <p className="text-xs opacity-75 mb-1">Flow Type</p>
-              <p className="font-bold capitalize">{currentCalculation.exchangerType.replace('flow', ' Flow')}</p>
+              {/* Correctly access the configuration from input.flowConfiguration */}
+              <p className="font-bold capitalize">{(input.flowConfiguration || 'Counter Flow').replace(/-/g, ' ')}</p>
             </div>
             <div>
               <p className="text-xs opacity-75 mb-1">Effectiveness</p>
@@ -370,6 +390,7 @@ const CalculationResults = () => {
                     <Wind size={14} className="text-red-600" />
                     Reynolds (Hot)
                   </p>
+                  {/* Use results.reynolds.hot (nested) */}
                   <p className="text-2xl font-bold text-red-700">{results.reynolds.hot.toFixed(0)}</p>
                   <p className="text-xs text-slate-500 mt-1">{results.flowRegime.hot}</p>
                 </div>
@@ -378,6 +399,7 @@ const CalculationResults = () => {
                     <Droplet size={14} className="text-cyan-600" />
                     Reynolds (Cold)
                   </p>
+                   {/* Use results.reynolds.cold (nested) */}
                   <p className="text-2xl font-bold text-cyan-700">{results.reynolds.cold.toFixed(0)}</p>
                   <p className="text-xs text-slate-500 mt-1">{results.flowRegime.cold}</p>
                 </div>

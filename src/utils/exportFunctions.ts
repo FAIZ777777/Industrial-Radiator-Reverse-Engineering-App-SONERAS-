@@ -88,7 +88,9 @@ export const exportToPDF = (calculation: Calculation) => {
   doc.setFont('helvetica', 'bold');
   doc.text('Exchanger Type:', 15, yPos);
   doc.setFont('helvetica', 'normal');
-  doc.text(calculation.exchangerType.replace('flow', ' Flow'), 55, yPos);
+  // FIX: Use input.flowConfiguration instead of root property
+  const typeStr = (calculation.input.flowConfiguration || 'Counter Flow').replace(/-/g, ' ').replace('flow', ' Flow').toUpperCase();
+  doc.text(typeStr, 55, yPos);
   yPos += 10;
 
   // ========== KEY PERFORMANCE INDICATORS ==========
@@ -135,7 +137,9 @@ export const exportToPDF = (calculation: Calculation) => {
     ['Viscosity', calculation.input.hotFluidViscosity + ' kg/m·s', calculation.input.coldFluidViscosity + ' kg/m·s'],
     ['Density', calculation.input.hotFluidDensity + ' kg/m³', calculation.input.coldFluidDensity + ' kg/m³'],
     ['Specific Heat', calculation.input.hotFluidSpecificHeat + ' J/kg·°C', calculation.input.coldFluidSpecificHeat + ' J/kg·°C'],
-    ['Thermal Conductivity', calculation.input.hotFluidThermalConductivity + ' W/m·°C', calculation.input.coldFluidThermalConductivity + ' W/m·°C']
+    ['Thermal Conductivity', calculation.input.hotFluidThermalConductivity + ' W/m·°C', calculation.input.coldFluidThermalConductivity + ' W/m·°C'],
+    // ADDED: Fouling Factors
+    ['Fouling Factor', (calculation.input.foulingFactorHot || 0) + ' m²·K/W', (calculation.input.foulingFactorCold || 0) + ' m²·K/W']
   ];
 
   doc.setFontSize(9);
@@ -178,7 +182,9 @@ export const exportToPDF = (calculation: Calculation) => {
     ['Tube Length', calculation.input.tubeLength + ' m'],
     ['Number of Tubes', calculation.input.numberOfTubes.toString()],
     ['Total Surface Area', calculation.input.totalSurfaceArea + ' m²'],
-    ['Wall Temperature', calculation.input.wallTemp + ' °C']
+    ['Wall Temperature', calculation.input.wallTemp + ' °C'],
+    // ADDED: Tube Conductivity
+    ['Tube Material Cond.', (calculation.input.tubeThermalConductivity || 385) + ' W/m·K']
   ];
 
   doc.setFontSize(9);
@@ -301,6 +307,9 @@ export const exportToPDF = (calculation: Calculation) => {
 export const exportToExcel = (calculation: Calculation) => {
   const workbook = XLSX.utils.book_new();
 
+  // FIX: Use input.flowConfiguration
+  const configType = (calculation.input.flowConfiguration || 'Counter Flow').replace(/-/g, ' ').toUpperCase();
+
   // ========== SHEET 1: SUMMARY ==========
   const summaryData = [
     ['SONERA Heat Exchanger Analysis Report'],
@@ -311,7 +320,7 @@ export const exportToExcel = (calculation: Calculation) => {
     ['Date', new Date(calculation.timestamp).toLocaleDateString()],
     ['Time', new Date(calculation.timestamp).toLocaleTimeString()],
     ['Calculation ID', calculation.id],
-    ['Exchanger Type', calculation.exchangerType],
+    ['Exchanger Type', configType],
     [''],
     ['Key Performance Indicators'],
     ['Effectiveness', (calculation.results.effectiveness * 100).toFixed(2) + ' %'],
@@ -338,6 +347,8 @@ export const exportToExcel = (calculation: Calculation) => {
     ['Density', calculation.input.hotFluidDensity, calculation.input.coldFluidDensity, 'kg/m³'],
     ['Specific Heat', calculation.input.hotFluidSpecificHeat, calculation.input.coldFluidSpecificHeat, 'J/kg·°C'],
     ['Thermal Conductivity', calculation.input.hotFluidThermalConductivity, calculation.input.coldFluidThermalConductivity, 'W/m·°C'],
+    // ADDED: Fouling
+    ['Fouling Factor', calculation.input.foulingFactorHot || 0, calculation.input.foulingFactorCold || 0, 'm²·K/W'],
     [''],
     ['Geometric Parameters'],
     ['Tube External Diameter', calculation.input.tubeExtDiameter, '', 'm'],
@@ -346,7 +357,9 @@ export const exportToExcel = (calculation: Calculation) => {
     ['Number of Tubes', calculation.input.numberOfTubes, '', ''],
     ['Total Surface Area', calculation.input.totalSurfaceArea, '', 'm²'],
     ['Wall Temperature', calculation.input.wallTemp, '', '°C'],
-    ['Gravity Coefficient', calculation.input.gravityCoefficient, '', 'm/s²']
+    ['Gravity Coefficient', calculation.input.gravityCoefficient, '', 'm/s²'],
+    // ADDED: Tube Cond
+    ['Tube Conductivity', calculation.input.tubeThermalConductivity || 385, '', 'W/m·K']
   ];
 
   const inputSheet = XLSX.utils.aoa_to_sheet(inputData);
@@ -405,7 +418,8 @@ export const exportToCSV = (calculations: Calculation[]) => {
     'Time': new Date(calc.timestamp).toLocaleTimeString(),
     'Engineer': calc.engineer,
     'Product Name': calc.productName,
-    'Exchanger Type': calc.exchangerType,
+    // FIX: Use input.flowConfiguration
+    'Exchanger Type': (calc.input.flowConfiguration || 'Counter Flow').replace(/-/g, ' '),
     // Temperatures
     'Hot Temp In (°C)': calc.input.hotFluidTempIn,
     'Hot Temp Out (°C)': calc.input.hotFluidTempOut,
@@ -420,6 +434,10 @@ export const exportToCSV = (calculations: Calculation[]) => {
     'Tube Length (m)': calc.input.tubeLength,
     'Number of Tubes': calc.input.numberOfTubes,
     'Surface Area (m²)': calc.input.totalSurfaceArea,
+    // ADDED: New inputs
+    'Fouling Hot': calc.input.foulingFactorHot || 0,
+    'Fouling Cold': calc.input.foulingFactorCold || 0,
+    'Tube Cond': calc.input.tubeThermalConductivity || 385,
     // Results
     'Effectiveness (%)': (calc.results.effectiveness * 100).toFixed(2),
     'NTU': calc.results.NTU.toFixed(4),
@@ -529,6 +547,10 @@ export const exportCalculationsToCSV = (calculations: Calculation[]) => {
     'Tube Length (m)',
     'Number of Tubes',
     'Total Surface Area (m²)',
+    // ADDED: New fields
+    'Fouling Hot',
+    'Fouling Cold',
+    'Tube Cond',
     // Results
     'Effectiveness (%)',
     'NTU',
@@ -564,7 +586,8 @@ export const exportCalculationsToCSV = (calculations: Calculation[]) => {
       date.toLocaleTimeString(),
       calc.engineer,
       calc.productName,
-      calc.exchangerType,
+      // FIX: Use input.flowConfiguration
+      (calc.input.flowConfiguration || 'Counter Flow').replace(/-/g, ' '),
       // Inputs
       calc.input.hotFluidTempIn,
       calc.input.hotFluidTempOut,
@@ -578,6 +601,10 @@ export const exportCalculationsToCSV = (calculations: Calculation[]) => {
       calc.input.tubeLength,
       calc.input.numberOfTubes,
       calc.input.totalSurfaceArea,
+      // ADDED: New inputs
+      calc.input.foulingFactorHot || 0,
+      calc.input.foulingFactorCold || 0,
+      calc.input.tubeThermalConductivity || 385,
       // Results
       (calc.results.effectiveness * 100).toFixed(2),
       calc.results.NTU.toFixed(4),
@@ -656,6 +683,8 @@ export const exportToPDFPrint = (calculation: Calculation) => {
 
   const { input, results } = calculation;
   const date = new Date(calculation.timestamp);
+  // FIX: Use input.flowConfiguration
+  const configStr = (calculation.input.flowConfiguration || 'Counter Flow').replace(/-/g, ' ').replace('flow', ' Flow');
 
   // Generate HTML content
   const htmlContent = `
@@ -876,7 +905,7 @@ export const exportToPDFPrint = (calculation: Calculation) => {
       </div>
       <div class="info-item">
         <span class="info-label">Exchanger Type:</span>
-        <span class="info-value">${calculation.exchangerType.replace('flow', ' Flow')}</span>
+        <span class="info-value">${configStr}</span>
       </div>
     </div>
   </div>
